@@ -8,12 +8,15 @@ classDiagram
         +int duration_minutes
         +str priority
         +str frequency
+        +str start_time
         +bool completed
         +date last_completed_date
+        +date next_due_date
         +mark_complete(on_date) None
         +reset() None
         +is_due(on_date) bool
         +priority_rank() int
+        +end_time() str
     }
 
     class Pet {
@@ -36,6 +39,7 @@ classDiagram
         +add_pet(pet) None
         +remove_pet(name) bool
         +get_pets() list
+        +get_all_tasks() list
         +get_all_due_tasks(on_date) list
         +total_due_minutes(on_date) int
     }
@@ -43,7 +47,10 @@ classDiagram
     class Scheduler {
         +Owner owner
         +build_daily_plan(on_date) list
+        +sort_by_time(tasks) list
+        +filter_tasks(pet_name, completed) list
         +detect_conflicts(plan) list
+        +detect_time_conflicts(pairs) list
         +get_unscheduled_tasks(plan, on_date) list
         +advance_day() None
         +summary(plan) str
@@ -71,4 +78,11 @@ Scheduler.build_daily_plan()
     └── owner.get_all_due_tasks()
             └── pet.get_due_tasks()
                     └── task.is_due()
+
+Scheduler.sort_by_time(tasks)
+    └── sorted(..., key=lambda t: t.start_time or "99:99")
+
+Scheduler.detect_time_conflicts()
+    └── owner.get_all_tasks()
+            └── compare HH:MM windows pairwise
 ```
