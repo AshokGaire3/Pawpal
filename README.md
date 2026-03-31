@@ -1,6 +1,8 @@
 # PawPal+ (Module 2 Project)
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+**PawPal+** is a Streamlit app that helps a pet owner plan daily care tasks for one or more pets. It uses a priority-based greedy scheduler, conflict detection, and recurring task logic to produce a smart daily plan.
+
+---
 
 ## Scenario
 
@@ -10,17 +12,25 @@ A busy pet owner needs help staying consistent with pet care. They want an assis
 - Consider constraints (time available, priority, owner preferences)
 - Produce a daily plan and explain why it chose that plan
 
-Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
+---
 
-## What you will build
+## Features
 
-Your final app should:
+- **Sort by time** — `Scheduler.sort_by_time()` orders tasks by their optional `start_time` field (HH:MM) using a `lambda` key with Python's `sorted()`. Tasks without a preferred time slot sort to the end automatically.
+- **Filter tasks** — `Scheduler.filter_tasks()` lets you slice the full task list by pet name, completion status, or both at once.
+- **Daily recurrence** — When `task.mark_complete()` is called, `next_due_date` is automatically calculated using `timedelta`: +1 day for daily tasks, +7 days for weekly tasks. `is_due()` uses this date to resurface the task at exactly the right time.
+- **Conflict warnings** — `detect_time_conflicts()` scans all tasks that have a `start_time` and flags overlapping windows. Warnings are surfaced in the UI with actionable advice — the app never silently changes your schedule.
+- **Priority-first greedy scheduling** — `build_daily_plan()` sorts due tasks by priority (high → medium → low), then greedily packs them into the owner's time budget. Tasks that don't fit are listed separately so nothing is silently dropped.
+- **Unscheduled task list** — Tasks excluded due to time budget are shown in a dedicated table after schedule generation, with priority and duration so the owner can decide what to defer.
+- **Multi-pet support** — An `Owner` can have multiple `Pet` objects, each with independent task lists. The Scheduler aggregates across all pets into one unified daily plan.
 
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
-- Generate a daily schedule/plan based on constraints and priorities
-- Display the plan clearly (and ideally explain the reasoning)
-- Include tests for the most important scheduling behaviors
+---
+
+## 📸 Demo
+
+<a href="/course_images/ai110/pawpal_screenshot.png" target="_blank"><img src='/course_images/ai110/pawpal_screenshot.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
+---
 
 ## Getting started
 
@@ -32,16 +42,49 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### Run the Streamlit app
+
+```bash
+streamlit run app.py
+```
+
+### Run the CLI demo
+
+```bash
+python main.py
+```
+
+### Run tests
+
+```bash
+pytest tests/
+```
+
+---
+
+## Project structure
+
+```
+Pawpal/
+├── app.py              # Streamlit UI
+├── pawpal_system.py    # Core classes: Task, Pet, Owner, Scheduler
+├── main.py             # CLI demo of all algorithmic features
+├── cli_demo.py         # Extended scenario demonstrations
+├── uml_final.md        # Final Mermaid.js class diagram (export to uml_final.png)
+├── reflection.md       # Design and AI collaboration reflection
+├── requirements.txt
+└── tests/
+    ├── test_pawpal.py  # Core system tests
+    └── test_models.py  # Model layer tests
+```
+
+---
+
 ## Smarter Scheduling
 
-PawPal+ includes four algorithmic features that make the daily plan more intelligent:
-
-- **Sorting** — `Scheduler.sort_by_time()` orders tasks by their optional `start_time` field (HH:MM string) using a `lambda` key with Python's `sorted()`. Tasks without a preferred time slot sort to the end automatically.
-- **Filtering** — `Scheduler.filter_tasks()` lets you slice the full task list by pet name, completion status, or both at once.
-- **Recurring tasks** — When `task.mark_complete()` is called, `next_due_date` is automatically set using `timedelta`: +1 day for daily tasks, +7 days for weekly tasks. `is_due()` uses this date to resurface the task at the right time.
-- **Conflict detection** — `detect_time_conflicts()` scans all tasks that have a `start_time` and flags any overlapping windows. It returns a warning message instead of crashing, so the owner can decide how to resolve it.
-
-Run `python main.py` to see all four features demonstrated in the terminal.
+Run `python main.py` to see all four algorithmic features demonstrated in the terminal:
+sorting by time, filtering by pet and completion status, recurring task logic (daily/weekly),
+and conflict detection across timed task windows.
 
 ### Suggested workflow
 
