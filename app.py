@@ -84,7 +84,7 @@ else:
     pet_names = [p.name for p in pets]
     selected_pet_name = st.selectbox("Assign task to", pet_names)
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         task_desc = st.text_input("Task description", value="Morning walk")
     with col2:
@@ -93,18 +93,25 @@ else:
         priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
     with col4:
         frequency = st.selectbox("Frequency", ["daily", "weekly", "as_needed"])
+    with col5:
+        start_time_input = st.text_input("Start time (HH:MM)", value="", placeholder="08:00")
 
     if st.button("Add Task"):
-        # Find the selected Pet object from the owner's list
         target_pet = next(p for p in pets if p.name == selected_pet_name)
-        new_task = Task(
-            description=task_desc,
-            duration_minutes=int(duration),
-            priority=priority,
-            frequency=frequency,
-        )
-        target_pet.add_task(new_task)    # <-- Pet method call
-        st.success(f"Task '{task_desc}' added to {target_pet.name}!")
+        # Only pass start_time if the user filled it in
+        start_time_val = start_time_input.strip() or None
+        try:
+            new_task = Task(
+                description=task_desc,
+                duration_minutes=int(duration),
+                priority=priority,
+                frequency=frequency,
+                start_time=start_time_val,
+            )
+            target_pet.add_task(new_task)
+            st.success(f"Task '{task_desc}' added to {target_pet.name}!")
+        except ValueError as e:
+            st.error(f"Invalid input: {e}")
 
     # Show all tasks across all pets
     all_pairs = st.session_state.owner.get_all_tasks()
@@ -128,7 +135,7 @@ st.divider()
 st.subheader("4. Generate Today's Schedule")
 
 if st.button("Generate Schedule"):
-    scheduler = Scheduler(st.session_state.owner)   # <-- Scheduler wired to live Owner
+    scheduler = Scheduler(st.session_state.owner)
     plan = scheduler.build_daily_plan()
 
     if not plan:
@@ -137,7 +144,14 @@ if st.button("Generate Schedule"):
         st.success("Schedule built!")
         st.text(scheduler.summary(plan))
 
-        # Surface anything that didn't fit
+        # Conflict detection
+        time_conflicts = scheduler.detect_time_conflicts()
+        if time_conflicts:
+            st.error(f"{len(time_conflicts)} time conflict(s) detected:")
+            for c in time_conflicts:
+                st.markdown(f"- {c}")
+
+        # Surface anything that didn't fit the time budget
         skipped = scheduler.get_unscheduled_tasks(plan)
         if skipped:
             st.warning(f"{len(skipped)} task(s) didn't fit in your time budget:")
