@@ -7,10 +7,29 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+When I first thought about PawPal+, I asked myself what the real "things" in this problem are. A pet owner has pets, pets have care tasks, and something needs to figure out what to do each day. That gave me four natural classes.
+
+**Task** was the simplest starting point. Every care activity — a walk, a feeding, a vet visit — has a description, a duration, a priority (low / medium / high), and a frequency (daily, weekly, or as-needed). I also gave it a `completed` flag and a `last_completed_date` so the system can tell whether something still needs to happen today. The key methods are `mark_complete()`, `reset()`, `is_due()`, and `priority_rank()` — that last one converts the string priority into a number so the Scheduler can sort cleanly.
+
+**Pet** is basically a container. It holds the pet's name, species, and age, and it owns a private list of Task objects. I gave it `add_task()` / `remove_task()` for managing that list, `get_due_tasks()` to filter by date, and `reset_daily_tasks()` to roll daily tasks back to pending at the start of a new day. The pet itself doesn't schedule anything — it just knows what it needs.
+
+**Owner** sits one level above Pet. It holds the owner's name and — critically — their `available_minutes_per_day`, the time budget the Scheduler has to work within. The most important methods are `get_all_tasks()` and `get_all_due_tasks()`, which loop across every pet and flatten their tasks into a single `(Pet, Task)` list. This is the bridge the Scheduler calls so it never has to reach directly into a pet's internals.
+
+**Scheduler** is the brain. It takes an Owner in its constructor and uses `owner.get_all_due_tasks()` to pull the full workload. `build_daily_plan()` sorts that list by priority (high first), then greedily packs tasks into the time budget. It also exposes `detect_conflicts()` for catching time-slot overlaps, `get_unscheduled_tasks()` for surfacing what didn't fit, and `summary()` to render the plan as readable text for the CLI or Streamlit UI.
+
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+Yes, a few things shifted once I started actually writing code.
+
+The biggest change was converting `Task` and `Pet` to **Python dataclasses** (`@dataclass`). My original plan used plain `__init__` methods, but dataclasses cut out a lot of repetitive setup code while keeping validation clean inside `__post_init__`. It made both classes easier to read.
+
+After reviewing the skeleton more carefully I also noticed two things worth flagging:
+
+- **Missing relationship:** `Task` has no direct reference back to its `Pet`. If a task gets passed around as a standalone object you lose track of which pet it belongs to. The system works around this by always passing `(Pet, Task)` tuples — but storing a `pet_name` field on Task directly would be cleaner in a future iteration.
+- **Logic bottleneck:** `detect_conflicts()` does an O(n²) pairwise comparison on the plan. Since the Scheduler assigns sequential non-overlapping slots by design, this method will almost never find a real conflict in normal operation — it's defensive code. Not broken, but worth knowing if the plan ever gets large.
 
 ---
 
