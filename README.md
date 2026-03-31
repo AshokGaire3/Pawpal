@@ -23,6 +23,8 @@ A busy pet owner needs help staying consistent with pet care. They want an assis
 - **Priority-first greedy scheduling** — `build_daily_plan()` sorts due tasks by priority (high → medium → low), then greedily packs them into the owner's time budget. Tasks that don't fit are listed separately so nothing is silently dropped.
 - **Unscheduled task list** — Tasks excluded due to time budget are shown in a dedicated table after schedule generation, with priority and duration so the owner can decide what to defer.
 - **Multi-pet support** — An `Owner` can have multiple `Pet` objects, each with independent task lists. The Scheduler aggregates across all pets into one unified daily plan.
+- **Data persistence** — `Owner.save_to_json()` and `Owner.load_from_json()` serialize the full object graph (owner → pets → tasks, including `date` fields) to `data.json`. The Streamlit app auto-saves on every add action and reloads on startup. Agent Mode was used to plan the symmetric `to_dict`/`from_dict` classmethod design on `Task` and `Pet` before writing any code.
+- **Emoji-coded UI** — Priority levels display as 🔴 High / 🟡 Medium / 🟢 Low throughout all tables. Species and task types are given contextual icons (🐕 🐈 🐇 🦮 🍖 💊 ✂️ 🎾 etc.) for at-a-glance readability.
 
 ---
 
