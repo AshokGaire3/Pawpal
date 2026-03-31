@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import pytest
 from pawpal_system import Task, Pet, Owner, Scheduler
 
 
@@ -189,3 +190,158 @@ def test_detect_time_conflicts_no_conflict_when_sequential():
     scheduler = Scheduler(owner)
 
     assert scheduler.detect_time_conflicts() == []
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — build_daily_plan() sorting by priority
+# ---------------------------------------------------------------------------
+
+def test_build_daily_plan_sorts_high_before_medium_before_low():
+    """build_daily_plan() should return tasks ordered high → medium → low priority."""
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    pet = Pet("Mochi", "dog")
+    pet.add_task(Task("Play fetch",    duration_minutes=10, priority="low"))
+    pet.add_task(Task("Give medicine", duration_minutes=10, priority="high"))
+    pet.add_task(Task("Brush fur",     duration_minutes=10, priority="medium"))
+    owner.add_pet(pet)
+
+    scheduler = Scheduler(owner)
+    plan = scheduler.build_daily_plan()
+
+    priorities = [e["task"].priority for e in plan]
+    assert priorities == ["high", "medium", "low"]
+
+
+def test_build_daily_plan_same_priority_shorter_task_first():
+    """Within equal priority, the shorter task is scheduled first."""
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    pet = Pet("Mochi", "dog")
+    pet.add_task(Task("Long walk",   duration_minutes=45, priority="high"))
+    pet.add_task(Task("Quick treat", duration_minutes=5,  priority="high"))
+    owner.add_pet(pet)
+
+    scheduler = Scheduler(owner)
+    plan = scheduler.build_daily_plan()
+
+    assert plan[0]["task"].description == "Quick treat"
+    assert plan[1]["task"].description == "Long walk"
+
+
+def test_build_daily_plan_start_end_minutes_sequential():
+    """Each plan entry's start_min should equal the previous entry's end_min."""
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    pet = Pet("Mochi", "dog")
+    pet.add_task(Task("Walk",  duration_minutes=30, priority="high"))
+    pet.add_task(Task("Brush", duration_minutes=15, priority="medium"))
+    owner.add_pet(pet)
+
+    scheduler = Scheduler(owner)
+    plan = scheduler.build_daily_plan()
+
+    assert plan[0]["start_min"] == 0
+    assert plan[0]["end_min"]   == 30
+    assert plan[1]["start_min"] == 30
+    assert plan[1]["end_min"]   == 45
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — detect_conflicts() on plan-level dicts
+# ---------------------------------------------------------------------------
+
+def _make_plan_entry(description, start, end, priority="medium"):
+    """Build a minimal plan dict for detect_conflicts() tests."""
+    task = Task(description, duration_minutes=end - start, priority=priority)
+    return {"task": task, "start_min": start, "end_min": end}
+
+
+def test_detect_conflicts_fully_overlapping_tasks():
+    """Two tasks at the exact same time slot produce one conflict message."""
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    scheduler = Scheduler(owner)
+
+    plan = [
+        _make_plan_entry("Walk",    start=0, end=30),
+        _make_plan_entry("Feeding", start=0, end=30),
+    ]
+    conflicts = scheduler.detect_conflicts(plan)
+
+    assert len(conflicts) == 1
+    assert "Walk" in conflicts[0]
+    assert "Feeding" in conflicts[0]
+
+
+def test_detect_conflicts_no_conflict_for_sequential_tasks():
+    """Sequential non-overlapping tasks produce zero conflicts."""
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    scheduler = Scheduler(owner)
+
+    plan = [
+        _make_plan_entry("Walk",    start=0,  end=30),
+        _make_plan_entry("Feeding", start=30, end=45),
+        _make_plan_entry("Play",    start=45, end=75),
+    ]
+    assert scheduler.detect_conflicts(plan) == []
+
+
+def test_detect_conflicts_empty_plan():
+    """An empty plan should never produce conflicts."""
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    scheduler = Scheduler(owner)
+    assert scheduler.detect_conflicts([]) == []
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — Edge cases
+# ---------------------------------------------------------------------------
+
+def test_pet_with_no_tasks_produces_empty_plan():
+    """A registered pet with no tasks results in an empty daily plan."""
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    owner.add_pet(Pet("Ghost", "cat"))
+    scheduler = Scheduler(owner)
+    assert scheduler.build_daily_plan() == []
+
+
+def test_task_exceeding_budget_is_unscheduled():
+    """A task longer than the owner's full time budget should not appear in the plan."""
+    owner = Owner("Jordan", available_minutes_per_day=10)
+    pet = Pet("Rex", "dog")
+    pet.add_task(Task("Long bath", duration_minutes=60, priority="high"))
+    owner.add_pet(pet)
+
+    scheduler = Scheduler(owner)
+    plan = scheduler.build_daily_plan()
+    unscheduled = scheduler.get_unscheduled_tasks(plan)
+
+    assert len(plan) == 0
+    assert len(unscheduled) == 1
+    assert unscheduled[0][1].description == "Long bath"
+
+
+def test_low_priority_task_dropped_when_budget_full():
+    """High-priority task fills the budget; the low-priority task is unscheduled."""
+    owner = Owner("Jordan", available_minutes_per_day=30)
+    pet = Pet("Buddy", "dog")
+    pet.add_task(Task("High task", duration_minutes=30, priority="high"))
+    pet.add_task(Task("Low task",  duration_minutes=20, priority="low"))
+    owner.add_pet(pet)
+
+    scheduler = Scheduler(owner)
+    plan = scheduler.build_daily_plan()
+    unscheduled = scheduler.get_unscheduled_tasks(plan)
+
+    assert any(e["task"].description == "High task" for e in plan)
+    assert len(unscheduled) == 1
+    assert unscheduled[0][1].description == "Low task"
+
+
+def test_invalid_priority_raises_value_error():
+    """Creating a Task with an unknown priority string should raise ValueError."""
+    with pytest.raises(ValueError, match="priority"):
+        Task("Bad task", duration_minutes=10, priority="urgent")
+
+
+def test_invalid_start_time_format_raises_value_error():
+    """Creating a Task with a malformed start_time should raise ValueError."""
+    with pytest.raises(ValueError, match="start_time"):
+        Task("Bad time", duration_minutes=10, start_time="8am")
