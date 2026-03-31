@@ -16,6 +16,8 @@ classDiagram
         +is_due(on_date) bool
         +priority_rank() int
         +end_time() Optional~str~
+        +to_dict() dict
+        +from_dict(data)$ Task
     }
 
     class Pet {
@@ -29,6 +31,8 @@ classDiagram
         +get_due_tasks(on_date) list
         +reset_daily_tasks() None
         +total_task_time() int
+        +to_dict() dict
+        +from_dict(data)$ Pet
     }
 
     class Owner {
@@ -41,6 +45,8 @@ classDiagram
         +get_all_tasks() list
         +get_all_due_tasks(on_date) list
         +total_due_minutes(on_date) int
+        +save_to_json(filepath) None
+        +load_from_json(filepath)$ Owner
     }
 
     class Scheduler {
